@@ -1,0 +1,24 @@
+{
+  "expenses": [
+    {
+      "title": "netflix",
+      "category": "Subscriptions",
+      "amount": 9.99,
+      "date": "2025-10-19",
+      "id": "2c0b9908-b8c2-4257-932d-792895339cb0",
+      "createdAt": "2025-11-19T19:34:09.034Z"
+    },
+    {
+      "title": "tu puta madre",
+      "category": "Transportation",
+      "amount": 9.99,
+      "date": "2025-10-19",
+      "id": "439f998e-29a1-4be4-9324-bf770b5765de",
+      "createdAt": "2025-11-19T19:41:08.129Z"
+    }
+  ],
+  "settings": {
+    "currency": "EUR",
+    "language": "es"
+  }
+}
