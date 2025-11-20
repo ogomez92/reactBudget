@@ -84,6 +84,8 @@ export interface Translations {
     education: string;
     travel: string;
     subscriptions: string;
+    apps: string;
+    games: string;
     other: string;
   };
   // Months
@@ -181,6 +183,8 @@ const en: Translations = {
     education: 'Education',
     travel: 'Travel',
     subscriptions: 'Subscriptions',
+    apps: 'Apps',
+    games: 'Games',
     other: 'Other',
   },
   months: {
@@ -277,6 +281,8 @@ const es: Translations = {
     education: 'Educación',
     travel: 'Viajes',
     subscriptions: 'Suscripciones',
+    apps: 'Aplicaciones',
+    games: 'Juegos',
     other: 'Otros',
   },
   months: {
@@ -373,6 +379,8 @@ const ca: Translations = {
     education: 'Educació',
     travel: 'Viatges',
     subscriptions: 'Subscripcions',
+    apps: 'Aplicacions',
+    games: 'Jocs',
     other: 'Altres',
   },
   months: {
@@ -469,6 +477,8 @@ const it: Translations = {
     education: 'Istruzione',
     travel: 'Viaggi',
     subscriptions: 'Abbonamenti',
+    apps: 'App',
+    games: 'Giochi',
     other: 'Altro',
   },
   months: {
@@ -565,6 +575,8 @@ const fr: Translations = {
     education: 'Éducation',
     travel: 'Voyages',
     subscriptions: 'Abonnements',
+    apps: 'Applications',
+    games: 'Jeux',
     other: 'Autre',
   },
   months: {
@@ -661,6 +673,8 @@ const he: Translations = {
     education: 'חינוך',
     travel: 'נסיעות',
     subscriptions: 'מנויים',
+    apps: 'אפליקציות',
+    games: 'משחקים',
     other: 'אחר',
   },
   months: {
@@ -757,6 +771,8 @@ const ja: Translations = {
     education: '教育',
     travel: '旅行',
     subscriptions: 'サブスクリプション',
+    apps: 'アプリ',
+    games: 'ゲーム',
     other: 'その他',
   },
   months: {
@@ -853,6 +869,8 @@ const ru: Translations = {
     education: 'Образование',
     travel: 'Путешествия',
     subscriptions: 'Подписки',
+    apps: 'Приложения',
+    games: 'Игры',
     other: 'Другое',
   },
   months: {
@@ -949,6 +967,8 @@ const zh: Translations = {
     education: '教育',
     travel: '旅行',
     subscriptions: '订阅',
+    apps: '应用',
+    games: '游戏',
     other: '其他',
   },
   months: {
@@ -1014,6 +1034,8 @@ export function getCategoryName(language: Language, categoryKey: string): string
     'Education': 'education',
     'Travel': 'travel',
     'Subscriptions': 'subscriptions',
+    'Apps': 'apps',
+    'Games': 'games',
     'Other': 'other',
   };
   const key = categoryMap[categoryKey];

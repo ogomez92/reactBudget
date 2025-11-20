@@ -1,10 +1,8 @@
-import { useLoaderData, useFetcher } from 'react-router';
-import type { Route } from './+types/settings';
-import { getSettings, updateSettings } from '~/lib/budget-data.server';
-import type { Currency, Language } from '~/types';
-import { CURRENCY_SYMBOLS, LANGUAGE_NAMES } from '~/types';
+import type { Currency, Language, Settings } from '~/types';
+import { CURRENCY_SYMBOLS, LANGUAGE_NAMES, DEFAULT_SETTINGS } from '~/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Label } from '~/components/ui/label';
+import { Button } from '~/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -14,34 +12,14 @@ import {
 } from '~/components/ui/select';
 import { useEffect, useState } from 'react';
 import { getTranslation } from '~/lib/translations';
+import { getSettings, saveSettings, exportData, downloadData } from '~/lib/budget-storage';
+import { Download } from 'lucide-react';
 
 export function meta() {
   return [
     { title: 'Settings - Budget Game' },
     { name: 'description', content: 'Configure your budget tracking preferences' },
   ];
-}
-
-export async function loader() {
-  const settings = await getSettings();
-  return { settings };
-}
-
-export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
-  const currency = formData.get('currency') as Currency | null;
-  const language = formData.get('language') as Language | null;
-
-  const updates: Partial<{ currency: Currency; language: Language }> = {};
-  if (currency) updates.currency = currency;
-  if (language) updates.language = language;
-
-  if (Object.keys(updates).length > 0) {
-    await updateSettings(updates);
-    return { success: true };
-  }
-
-  return { success: false };
 }
 
 const CURRENCIES: { value: Currency; label: string }[] = [
@@ -58,32 +36,54 @@ const LANGUAGES: { value: Language; label: string }[] = (
   Object.entries(LANGUAGE_NAMES) as [Language, string][]
 ).map(([value, label]) => ({ value, label }));
 
-export default function Settings() {
-  const { settings } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+export default function SettingsPage() {
+  const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load settings from IndexedDB on mount
+  useEffect(() => {
+    getSettings().then(storedSettings => {
+      setSettingsState(storedSettings);
+      setIsLoaded(true);
+    });
+  }, []);
+
   const t = getTranslation(settings.language);
 
-  // Show saved message briefly after successful save
-  useEffect(() => {
-    if (fetcher.state === 'idle' && fetcher.data?.success) {
-      setSaved(true);
-      const timer = setTimeout(() => setSaved(false), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [fetcher.state, fetcher.data]);
-
-  const handleCurrencyChange = (value: string) => {
-    const formData = new FormData();
-    formData.set('currency', value);
-    fetcher.submit(formData, { method: 'post' });
+  const handleCurrencyChange = async (value: string) => {
+    const newSettings = { ...settings, currency: value as Currency };
+    setSettingsState(newSettings);
+    await saveSettings(newSettings);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleLanguageChange = (value: string) => {
-    const formData = new FormData();
-    formData.set('language', value);
-    fetcher.submit(formData, { method: 'post' });
+  const handleLanguageChange = async (value: string) => {
+    const newSettings = { ...settings, language: value as Language };
+    setSettingsState(newSettings);
+    await saveSettings(newSettings);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
+
+  const handleExport = async () => {
+    const data = await exportData();
+    const date = new Date().toISOString().split('T')[0];
+    downloadData(data, `budget-data-${date}.json`);
+  };
+
+  // Show loading state while hydrating
+  if (!isLoaded) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -166,6 +166,21 @@ export default function Settings() {
               </p>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.settings.data || 'Data'}</CardTitle>
+          <CardDescription>
+            {t.settings.dataDescription || 'Export your budget data'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={handleExport} variant="outline">
+            <Download className="h-4 w-4 mr-2" aria-hidden="true" />
+            {t.settings.exportData || 'Export Data'}
+          </Button>
         </CardContent>
       </Card>
 

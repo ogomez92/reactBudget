@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(npx shadcn@latest add button card dialog dropdown-menu input label select tabs navigation-menu separator --yes)",
-      "Bash(npm run typecheck:*)"
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(powershell -Command \"Get-Content ''C:/Users/Nitropc/downloads/budgetGame/app/routes/settings.tsx'' | Select-Object -First 5\")",
+      "Bash(powershell -Command \"Get-Content ''C:/Users/Nitropc/downloads/budgetGame/app/routes/settings.tsx'' | Select-Object -First 20\")",
+      "Bash(node:*)",
+      "Bash(powershell -Command \"Get-Content ''C:/Users/Nitropc/downloads/budgetGame/app/routes/settings.tsx'' | Select-Object -Skip 24 -First 10\")"
     ],
     "deny": [],
     "ask": []

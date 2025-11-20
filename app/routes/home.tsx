@@ -1,9 +1,6 @@
-import { useState } from 'react';
-import { useLoaderData, useFetcher } from 'react-router';
-import type { Route } from './+types/home';
-import { getExpenses, getSettings, getAvailableYears, addExpense, deleteExpense, updateExpense } from '~/lib/budget-data.server';
+import { useState, useEffect } from 'react';
 import type { Expense, Settings } from '~/types';
-import { CURRENCY_SYMBOLS } from '~/types';
+import { CURRENCY_SYMBOLS, DEFAULT_SETTINGS } from '~/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
@@ -18,56 +15,13 @@ import { Trash2, Plus, TrendingUp, TrendingDown, Minus, Pencil } from 'lucide-re
 import { AddExpenseDialog } from '~/components/expenses/add-expense-dialog';
 import { EditExpenseDialog } from '~/components/expenses/edit-expense-dialog';
 import { getTranslation, getMonthName, getMonthShortName, getCategoryName } from '~/lib/translations';
+import { getExpenses, getSettings, addExpense, updateExpense, deleteExpense, getAvailableYears } from '~/lib/budget-storage';
 
 export function meta() {
   return [
     { title: 'Expenses - Budget Game' },
     { name: 'description', content: 'Track your monthly expenses' },
   ];
-}
-
-export async function loader() {
-  const [expenses, settings, years] = await Promise.all([
-    getExpenses(),
-    getSettings(),
-    getAvailableYears(),
-  ]);
-
-  return { expenses, settings, years };
-}
-
-export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
-  const intent = formData.get('intent');
-
-  if (intent === 'add') {
-    const title = formData.get('title') as string;
-    const category = formData.get('category') as string;
-    const amount = parseFloat(formData.get('amount') as string);
-    const date = formData.get('date') as string;
-
-    await addExpense({ title, category, amount, date });
-    return { success: true };
-  }
-
-  if (intent === 'delete') {
-    const id = formData.get('id') as string;
-    await deleteExpense(id);
-    return { success: true };
-  }
-
-  if (intent === 'update') {
-    const id = formData.get('id') as string;
-    const title = formData.get('title') as string;
-    const category = formData.get('category') as string;
-    const amount = parseFloat(formData.get('amount') as string);
-    const date = formData.get('date') as string;
-
-    await updateExpense(id, { title, category, amount, date });
-    return { success: true };
-  }
-
-  return { success: false };
 }
 
 function groupExpensesByMonth(expenses: Expense[]): Map<string, Expense[]> {
@@ -92,13 +46,27 @@ function formatCurrency(amount: number, settings: Settings): string {
 }
 
 export default function Expenses() {
-  const { expenses, settings, years } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
-  const [selectedYear, setSelectedYear] = useState(years[0] || new Date().getFullYear());
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const t = getTranslation(settings.language);
 
+  // Load data from IndexedDB on mount
+  useEffect(() => {
+    Promise.all([getExpenses(), getSettings()]).then(([storedExpenses, storedSettings]) => {
+      setExpenses(storedExpenses);
+      setSettings(storedSettings);
+      const years = getAvailableYears(storedExpenses);
+      setSelectedYear(years[0] || new Date().getFullYear());
+      setIsLoaded(true);
+    });
+  }, []);
+
+  const t = getTranslation(settings.language);
+  const years = getAvailableYears(expenses);
   const groupedExpenses = groupExpensesByMonth(expenses);
 
   // Get months that have expenses for the selected year
@@ -119,13 +87,6 @@ export default function Expenses() {
   // Sort months in chronological order
   const sortedMonthsToShow = Array.from(monthsToShow).sort((a, b) => a - b);
 
-  // Default to current month if viewing current year, otherwise most recent month with expenses
-  const defaultMonth = selectedYear === currentYear
-    ? currentMonth
-    : (sortedMonthsToShow.length > 0 ? sortedMonthsToShow[sortedMonthsToShow.length - 1] : 0);
-
-  const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
-
   // Get expenses for selected month
   const currentMonthKey = `${selectedYear}-${selectedMonth}`;
   const currentMonthExpenses = groupedExpenses.get(currentMonthKey) || [];
@@ -142,6 +103,36 @@ export default function Expenses() {
   const difference = prevMonthTotal - currentMonthTotal;
   const savedMore = difference > 0;
   const spentSame = difference === 0;
+
+  // Handler functions
+  const handleAddExpense = async (expenseData: Omit<Expense, 'id' | 'createdAt'>) => {
+    const newExpense = await addExpense(expenseData);
+    setExpenses([...expenses, newExpense]);
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    await deleteExpense(id);
+    setExpenses(expenses.filter(expense => expense.id !== id));
+  };
+
+  const handleUpdateExpense = async (id: string, updates: Partial<Omit<Expense, 'id' | 'createdAt'>>) => {
+    const updated = await updateExpense(id, updates);
+    if (updated) {
+      setExpenses(expenses.map(expense => expense.id === id ? updated : expense));
+    }
+  };
+
+  // Show loading state while hydrating
+  if (!isLoaded) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -316,18 +307,15 @@ export default function Expenses() {
                                         >
                                           <Pencil className="h-4 w-4" aria-hidden="true" />
                                         </Button>
-                                        <fetcher.Form method="post" className="inline">
-                                          <input type="hidden" name="intent" value="delete" />
-                                          <input type="hidden" name="id" value={expense.id} />
-                                          <Button
-                                            type="submit"
-                                            variant="ghost"
-                                            size="icon"
-                                            aria-label={`${t.expenses.deleteExpense}: ${expense.title}`}
-                                          >
-                                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                          </Button>
-                                        </fetcher.Form>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleDeleteExpense(expense.id)}
+                                          aria-label={`${t.expenses.deleteExpense}: ${expense.title}`}
+                                        >
+                                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                        </Button>
                                       </div>
                                     </td>
                                   </tr>
@@ -405,12 +393,14 @@ export default function Expenses() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         settings={settings}
+        onAdd={handleAddExpense}
       />
 
       <EditExpenseDialog
         expense={editingExpense}
         onOpenChange={(open) => !open && setEditingExpense(null)}
         settings={settings}
+        onUpdate={handleUpdateExpense}
       />
     </div>
   );

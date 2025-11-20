@@ -1,5 +1,4 @@
-import { useFetcher } from 'react-router';
-import { useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -25,22 +24,43 @@ interface EditExpenseDialogProps {
   expense: Expense | null;
   onOpenChange: (open: boolean) => void;
   settings: Settings;
+  onUpdate: (id: string, updates: Partial<Omit<Expense, 'id' | 'createdAt'>>) => Promise<void>;
 }
 
-export function EditExpenseDialog({ expense, onOpenChange, settings }: EditExpenseDialogProps) {
-  const fetcher = useFetcher();
+export function EditExpenseDialog({ expense, onOpenChange, settings, onUpdate }: EditExpenseDialogProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  const isSubmitting = fetcher.state === 'submitting';
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [category, setCategory] = useState('');
   const t = getTranslation(settings.language);
 
-  // Close dialog on successful submission
+  // Update category when expense changes
   useEffect(() => {
-    if (fetcher.state === 'idle' && fetcher.data?.success) {
-      onOpenChange(false);
+    if (expense) {
+      setCategory(expense.category);
     }
-  }, [fetcher.state, fetcher.data, onOpenChange]);
+  }, [expense]);
 
   if (!expense) return null;
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    const updates = {
+      title: formData.get('title') as string,
+      category: formData.get('category') as string,
+      amount: parseFloat(formData.get('amount') as string),
+      date: formData.get('date') as string,
+    };
+
+    try {
+      await onUpdate(expense.id, updates);
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={!!expense} onOpenChange={onOpenChange}>
@@ -51,15 +71,12 @@ export function EditExpenseDialog({ expense, onOpenChange, settings }: EditExpen
             {t.editExpenseDialog.description}
           </DialogDescription>
         </DialogHeader>
-        <fetcher.Form
-          method="post"
+        <form
+          onSubmit={handleSubmit}
           ref={formRef}
           className="space-y-4"
           aria-label={t.editExpenseDialog.title}
         >
-          <input type="hidden" name="intent" value="update" />
-          <input type="hidden" name="id" value={expense.id} />
-
           <div className="space-y-2">
             <Label htmlFor="edit-title">{t.addExpenseDialog.expenseTitle}</Label>
             <Input
@@ -75,14 +92,14 @@ export function EditExpenseDialog({ expense, onOpenChange, settings }: EditExpen
 
           <div className="space-y-2">
             <Label htmlFor="edit-category">{t.addExpenseDialog.category}</Label>
-            <Select name="category" defaultValue={expense.category} required>
+            <Select name="category" required value={category} onValueChange={setCategory}>
               <SelectTrigger id="edit-category" aria-required="true">
                 <SelectValue placeholder={t.addExpenseDialog.selectCategory} />
               </SelectTrigger>
               <SelectContent>
-                {DEFAULT_CATEGORIES.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {getCategoryName(settings.language, category)}
+                {DEFAULT_CATEGORIES.map(cat => (
+                  <SelectItem key={cat} value={cat}>
+                    {getCategoryName(settings.language, cat)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -131,7 +148,7 @@ export function EditExpenseDialog({ expense, onOpenChange, settings }: EditExpen
               {isSubmitting ? t.editExpenseDialog.saving : t.editExpenseDialog.save}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );

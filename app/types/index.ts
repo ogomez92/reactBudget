@@ -39,6 +39,8 @@ export const DEFAULT_CATEGORIES = [
   'Education',
   'Travel',
   'Subscriptions',
+  'Apps',
+  'Games',
   'Other',
 ] as const;
 

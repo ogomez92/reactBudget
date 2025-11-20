@@ -1,5 +1,4 @@
-import { useFetcher } from 'react-router';
-import { useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
-import type { Settings } from '~/types';
+import type { Expense, Settings } from '~/types';
 import { DEFAULT_CATEGORIES, CURRENCY_SYMBOLS } from '~/types';
 import { getTranslation, getCategoryName } from '~/lib/translations';
 
@@ -25,24 +24,39 @@ interface AddExpenseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: Settings;
+  onAdd: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
 }
 
-export function AddExpenseDialog({ open, onOpenChange, settings }: AddExpenseDialogProps) {
-  const fetcher = useFetcher();
+export function AddExpenseDialog({ open, onOpenChange, settings, onAdd }: AddExpenseDialogProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  const isSubmitting = fetcher.state === 'submitting';
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [category, setCategory] = useState('');
   const t = getTranslation(settings.language);
-
-  // Close dialog and reset form on successful submission
-  useEffect(() => {
-    if (fetcher.state === 'idle' && fetcher.data?.success) {
-      onOpenChange(false);
-      formRef.current?.reset();
-    }
-  }, [fetcher.state, fetcher.data, onOpenChange]);
 
   // Get today's date in YYYY-MM-DD format for the date input default
   const today = new Date().toISOString().split('T')[0];
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    const expense = {
+      title: formData.get('title') as string,
+      category: formData.get('category') as string,
+      amount: parseFloat(formData.get('amount') as string),
+      date: formData.get('date') as string,
+    };
+
+    try {
+      await onAdd(expense);
+      onOpenChange(false);
+      formRef.current?.reset();
+      setCategory('');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -53,14 +67,12 @@ export function AddExpenseDialog({ open, onOpenChange, settings }: AddExpenseDia
             {t.addExpenseDialog.description}
           </DialogDescription>
         </DialogHeader>
-        <fetcher.Form
-          method="post"
+        <form
+          onSubmit={handleSubmit}
           ref={formRef}
           className="space-y-4"
           aria-label={t.addExpenseDialog.title}
         >
-          <input type="hidden" name="intent" value="add" />
-
           <div className="space-y-2">
             <Label htmlFor="title">{t.addExpenseDialog.expenseTitle}</Label>
             <Input
@@ -75,14 +87,14 @@ export function AddExpenseDialog({ open, onOpenChange, settings }: AddExpenseDia
 
           <div className="space-y-2">
             <Label htmlFor="category">{t.addExpenseDialog.category}</Label>
-            <Select name="category" required>
+            <Select name="category" required value={category} onValueChange={setCategory}>
               <SelectTrigger id="category" aria-required="true">
                 <SelectValue placeholder={t.addExpenseDialog.selectCategory} />
               </SelectTrigger>
               <SelectContent>
-                {DEFAULT_CATEGORIES.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {getCategoryName(settings.language, category)}
+                {DEFAULT_CATEGORIES.map(cat => (
+                  <SelectItem key={cat} value={cat}>
+                    {getCategoryName(settings.language, cat)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -130,7 +142,7 @@ export function AddExpenseDialog({ open, onOpenChange, settings }: AddExpenseDia
               {isSubmitting ? t.addExpenseDialog.adding : t.addExpenseDialog.add}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );
